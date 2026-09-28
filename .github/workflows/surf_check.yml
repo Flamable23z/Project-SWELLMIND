@@ -1,9 +1,9 @@
-name: Nightly SwellMind Surf Check
+name: Hourly SwellMind Surf Check
 
 on:
   schedule:
-    # Runs every day at 18:00 UTC (20:00 / 8:00 PM Cape Town time)
-    - cron: '0 18 * * *'
+    # Runs at minute 0 of every hour
+    - cron: '0 * * * *'
   # Allows you to also trigger it manually from the GitHub website!
   workflow_dispatch:
 
@@ -26,5 +26,4 @@ jobs:
           pip install requests pyttsx3
 
       - name: Run SwellMind Surf Check
-        run: |
-          python -c "from day01_intro import check_surf; check_surf()"
+        run: python lessons/day01_intro.py --cron

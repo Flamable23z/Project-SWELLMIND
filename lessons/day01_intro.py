@@ -1,3 +1,4 @@
+import sys
 import time 
 import random 
 import requests
@@ -109,6 +110,12 @@ def auto_check_loop():
         check_surf()
 
 # Start background thread
+# --- CLOUD AUTOMATION CHECK ---
+if "--cron" in sys.argv:
+    print("Swellmind running in automated Cloud Mode...")
+    check_surf()
+    sys.exit()  # This safely kills the program before it hits the input() loop!
+# ------------------------------
 surf_thread = threading.Thread(target=auto_check_loop, daemon=True)
 surf_thread.start()
 
