@@ -2,8 +2,9 @@ name: Hourly SwellMind Surf Check
 
 on:
   schedule:
-    # Runs at minute 0 of every hour
-    - cron: '0 3,18 * * *'
+    # Runs at 5:45 AM and 8:00 PM
+    - cron: '45 3 * * *'
+    - cron: '0 18 * * *'
   # Allows you to also trigger it manually from the GitHub website!
   workflow_dispatch:
 

@@ -13,7 +13,7 @@ running = True
 hour = datetime.now().hour
 
 # Helper function to check a single beach
-def check_single_beach(lat, lon, min_wind, max_wind, is_or_range, beach_name):
+def check_single_beach(lat, lon, min_wind, max_wind, is_or_range, beach_name, max_wind_speed=22):
     url = "https://marine-api.open-meteo.com/v1/marine"
     params = {
         "latitude": lat,
@@ -45,7 +45,7 @@ def check_single_beach(lat, lon, min_wind, max_wind, is_or_range, beach_name):
             is_offshore = (min_wind <= wind_dir <= max_wind)
             
         # Realistic surf conditions check
-        is_good = (height >= 0.8 and period >= 7.0 and wind < 22 and is_offshore)
+        is_good = (height >= 0.8 and period >= 7.0 and wind < max_wind_speed and is_offshore)
         
         stats = f"{beach_name.capitalize()}: {height}m ({period}s) | Wind: {wind}km/h ({wind_dir}°) | Water: {temp}°C"
         return is_good, stats
@@ -63,7 +63,7 @@ def check_surf():
     muiz_good, muiz_stats = check_single_beach(-34.1081, 18.4719, 315, 45, True, "muizenberg")
     
     # 2. Check Llandudno (SE offshore)
-    llan_good, llan_stats = check_single_beach(-34.0083, 18.3383, 112, 157, False, "llandudno")
+    llan_good, llan_stats = check_single_beach(-34.0083, 18.3383, 112, 157, False, "llandudno", 30)
     
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     
