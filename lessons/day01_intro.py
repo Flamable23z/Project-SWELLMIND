@@ -7,13 +7,15 @@ from datetime import datetime
 from memory import load_memory, save_memory
 from speech import speak
 
+# Load saved user settings (like name and favourite colour) from memory.json
 memory = load_memory()
 colours = ["blue", "red", "green", "yellow", "orange", "pink", "purple"]
 running = True 
 hour = datetime.now().hour
 
-# Helper function to check a single beach
+# Helper function to fetch and evaluate marine forecast data for a single beach
 def check_single_beach(lat, lon, min_wind, max_wind, is_or_range, beach_name, max_wind_speed=22):
+    # Open-Meteo API endpoint for marine weather
     url = "https://marine-api.open-meteo.com/v1/marine"
     params = {
         "latitude": lat,
@@ -23,51 +25,55 @@ def check_single_beach(lat, lon, min_wind, max_wind, is_or_range, beach_name, ma
     }
     
     try:
+        # Fetch weather data from API and convert response to JSON dictionary
         response = requests.get(url, params=params)
         data = response.json()
         
-        # 06:00 AM forecast (Index 6)
+        # Index 6 corresponds to 06:00 AM forecast in the hourly data array
         height = data["hourly"]["wave_height"][6]
         period = data["hourly"]["wave_period"][6]
         wind = data["hourly"]["wind_speed_10m"][6]
         wind_dir = data["hourly"]["wind_direction_10m"][6]
         temp = data["hourly"]["sea_surface_temperature"][6]
         
-        # Defensive checks for None
+        # Defensive programming: set default fallbacks if API returns None values
         if wind is None: wind = 0
         if wind_dir is None: wind_dir = 0
         if temp is None: temp = 15
         
-        # Check offshore wind range
+        # Offshore wind check:
+        # Muizenberg (315° to 45°) wraps past 0° North, so it needs an 'OR' check.
+        # Llandudno (112° to 157°) is a normal range, so it uses an 'AND' check.
         if is_or_range:
             is_offshore = (wind_dir >= min_wind or wind_dir <= max_wind)
         else:
             is_offshore = (min_wind <= wind_dir <= max_wind)
             
-        # Realistic surf conditions check
+        # Overall boolean check: surf is good if waves are high enough, period is long, wind is light & offshore
         is_good = (height >= 0.8 and period >= 7.0 and wind < max_wind_speed and is_offshore)
         
         stats = f"{beach_name.capitalize()}: {height}m ({period}s) | Wind: {wind}km/h ({wind_dir}°) | Water: {temp}°C"
         return is_good, stats
         
     except Exception as e:
+        # Error handling so a network failure doesn't crash the entire program
         print(f"Error checking {beach_name}: {e}")
         return False, f"{beach_name.capitalize()}: Data unavailable"
 
-# Main multi-beach surf skill
+# Main function to check both beaches and send reports
 def check_surf():
     print("Swellmind: Checking Muizenberg and Llandudno forecasts...")
     speak("Checking surf conditions for both Muizenberg and Llandudno.")
     
-    # 1. Check Muizenberg (NW to NE offshore)
+    # Muizenberg: NW to NE offshore wind (max 22 km/h)
     muiz_good, muiz_stats = check_single_beach(-34.1081, 18.4719, 315, 45, True, "muizenberg")
     
-    # 2. Check Llandudno (SE offshore)
+    # Llandudno: SE offshore wind (can handle up to 30 km/h)
     llan_good, llan_stats = check_single_beach(-34.0083, 18.3383, 112, 157, False, "llandudno", 30)
     
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     
-    # Decision tree
+    # Decision tree: decide report message based on which spot is surfable
     if muiz_good and llan_good:
         status = "BOTH GOOD"
         msg = f"Surf's UP everywhere! Both spots are firing.\n{muiz_stats}\n{llan_stats}\nSet alarm for 5:30 AM!"
@@ -87,7 +93,7 @@ def check_surf():
         
     print(f"\nSwellmind Report:\n{msg}")
     
-    # Send iPhone alert if either spot is good
+    # Trigger push notification to ntfy app if surf is good
     if muiz_good or llan_good:
         try:
             requests.post(
@@ -97,29 +103,29 @@ def check_surf():
         except Exception as e:
             print(f"Could not send ntfy notification: {e}")
 
-    # Log entry to history file
+    # Log the report result to a text file for history tracking
     log_entry = f"[{timestamp}] Result: {status}\n  -> {muiz_stats}\n  -> {llan_stats}\n"
     with open("surf_history.txt", "a", encoding="utf-8", errors="replace") as file:
         file.write(log_entry)
 
-# Background worker function (checks surf every 3600 seconds = 1 hour)
+# Background loop for local desktop auto-checks (runs every hour)
 def auto_check_loop():
     while True:
-        time.sleep(3600)
+        time.sleep(3600) # Sleep for 3600 seconds = 1 hour
         print("\n[Swellmind Auto-Check]: Running background hourly forecast check...")
         check_surf()
 
-# Start background thread
-# --- CLOUD AUTOMATION CHECK ---
+# If GitHub Actions runs the script with '--cron', check surf and exit immediately (headless mode)
 if "--cron" in sys.argv:
     print("Swellmind running in automated Cloud Mode...")
     check_surf()
-    sys.exit()  # This safely kills the program before it hits the input() loop!
-# ------------------------------
+    sys.exit()  
+
+# If running locally on laptop, start background thread for hourly checks
 surf_thread = threading.Thread(target=auto_check_loop, daemon=True)
 surf_thread.start()
 
-# Greeting setup
+# Greet user based on time of day and remembered name
 def greet_user():
     if "name" in memory:
         user_name = memory['name']
@@ -149,7 +155,7 @@ def greet_user():
 
 greet_user()
 
-# Main command loop
+# Main interactive command loop for local laptop terminal
 while running:
     askcommand = input("\nWhat can I help you with today? ").lower().strip()
     
